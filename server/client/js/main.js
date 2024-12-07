@@ -166,7 +166,7 @@ function sendAttack(sourceCircle, targetCircle, units) {
 }
 function renderMovingDots() {
     movingDots.forEach((dot) => {
-        const { source, target, progress, offsetX, offsetY } = dot;
+        const { source, target, progress, color, offsetX, offsetY } = dot;
 
         if (source && target) {
             // Adjust progress for wave delay
@@ -182,7 +182,7 @@ function renderMovingDots() {
             // Draw the dot
             ctx.beginPath();
             ctx.arc(x, y, 3, 0, Math.PI * 2);
-            ctx.fillStyle = source.color || 'white'; // Default to white
+            ctx.fillStyle = color || 'white'; // Default to white
             ctx.fill();
         } else {
             console.error('Invalid dot source or target:', dot);
