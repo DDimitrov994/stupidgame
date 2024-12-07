@@ -95,6 +95,7 @@ function generateNeutralCircles(range) {
         playerId:null
     }));
 }
+
 function handlePlayerAction(action, gameState, matchId) {
     const source = gameState.circles.find((c) => c.id === action.source);
     const target = gameState.circles.find((c) => c.id === action.target);
@@ -118,7 +119,7 @@ function handlePlayerAction(action, gameState, matchId) {
         let remainingUnits = action.units;
         let waveIndex = 0;
 
-        // Create moving dots with ownership and wave behavior
+        // Create moving dots with ownership, color, and player data
         while (remainingUnits > 0) {
             const dotsInWave = Math.min(remainingUnits, Math.floor(Math.random() * 8) + 3); // 3-10 dots per wave
             remainingUnits -= dotsInWave;
@@ -132,7 +133,9 @@ function handlePlayerAction(action, gameState, matchId) {
                     units: 1,
                     offsetX: (Math.random() - 0.5) * 20, // Randomized offset for clustering
                     offsetY: (Math.random() - 0.5) * 20,
-                    playerId: source.playerId // Explicitly track the original owner
+                    playerId: source.playerId, // Track the original owner
+                    color: source.color,       // Track the original color
+                    player: source.player      // Track the original player name
                 });
             }
 
@@ -153,6 +156,7 @@ function handlePlayerAction(action, gameState, matchId) {
         console.log('Invalid attack: insufficient units.');
     }
 }
+
 
 function startGameLoop(matchId, gameState) {
     const interval = setInterval(() => {
@@ -211,7 +215,6 @@ function handleMovement(matchId, gameState) {
     }, 10); // Update every 10ms
 }
 
-
 function resolveBattle(dot, gameState) {
     const target = gameState.circles.find((c) => c.id === dot.targetId);
 
@@ -219,19 +222,24 @@ function resolveBattle(dot, gameState) {
 
     if (dot.playerId === target.playerId) {
         console.log(`Transferring units: ${dot.units} to ${target.id}`);
-        target.units += dot.units; // Add units to the target circle
+        target.units += dot.units;
     } else {
         if (dot.units > target.units) {
             console.log(`Dot owner ${dot.playerId} conquers ${target.id}`);
             target.isPlayer = true;
             target.playerId = dot.playerId; // Use the dot's owner for new ownership
             target.units = dot.units - target.units;
+
+            // Update color and player directly from the dot
+            target.color = dot.color;
+            target.player = dot.player;
         } else {
             target.units -= dot.units;
         }
     }
-}
 
+    console.log('Updated Target Circle:', target);
+}
 
 
 function findMatch(socketId) {
