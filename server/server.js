@@ -69,31 +69,106 @@ io.on('connection', (socket) => {
 
 function initializeGameState(player1, player2) {
     const radius = 40; // Circle radius
+    const circleDiameter = radius * 2;
 
-    const neutralCircles = generateNeutralCircles(config.neutralCircleRange);
-    console.log('Player1: ' + player1.Id);
+    // Array to hold all placed circles to check for overlap
+    const allCircles = [];
+
+    // Helper function to generate random positions
+    function getRandomPosition() {
+        return {
+            x: Math.random() * (800 - 2 * radius) + radius, // Ensure circle stays within bounds
+            y: Math.random() * (600 - 2 * radius) + radius
+        };
+    }
+
+    // Helper function to check minimum distance
+    function isValidPosition(newCircle) {
+        return allCircles.every(
+            (existingCircle) =>
+                Math.sqrt(
+                    Math.pow(existingCircle.x - newCircle.x, 2) +
+                    Math.pow(existingCircle.y - newCircle.y, 2)
+                ) >= circleDiameter
+        );
+    }
+
+    // Generate random positions for player circles
+    function placePlayerCircle(player, color, id) {
+        let position;
+        do {
+            position = getRandomPosition();
+        } while (!isValidPosition(position));
+
+        const circle = {
+            id: id,
+            x: position.x,
+            y: position.y,
+            units: 10,
+            isPlayer: true,
+            player: player.name,
+            color: player.color,
+            playerId: player.id
+        };
+
+        allCircles.push(circle); // Add to all circles to enforce distance
+        return circle;
+    }
+
+    const player1Circle = placePlayerCircle(player1, player1.color, 'p1');
+    const player2Circle = placePlayerCircle(player2, player2.color, 'p2');
+
+    // Generate random positions for neutral circles
+    const neutralCircles = generateNeutralCircles(config.neutralCircleRange, allCircles, circleDiameter);
+
     return {
-        circles: [
-            { id: 'p1', x: radius + 50, y: 300, units: 10, isPlayer: true, player: player1.name, color: player1.color,playerId:player1.id },
-            { id: 'p2', x: 800 - radius - 50, y: 300, units: 10, isPlayer: true, player: player2.name, color: player2.color,playerId:player2.id },
-            ...neutralCircles,
-        ],
+        circles: [player1Circle, player2Circle, ...neutralCircles],
         movingDots: [],
     };
 }
 
-function generateNeutralCircles(range) {
+function generateNeutralCircles(range, allCircles, circleDiameter) {
     const numCircles = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
     const radius = 40; // Circle radius
+    const neutralCircles = [];
 
-    return Array.from({ length: numCircles }, (_, i) => ({
-        id: `n${i}`,
-        x: Math.random() * (800 - 2 * radius) + radius,
-        y: Math.random() * (600 - 2 * radius) + radius,
-        units: Math.floor(Math.random() * config.neutralStartingUnits.max) + config.neutralStartingUnits.min,
-        isPlayer: false,
-        playerId:null
-    }));
+    function getRandomPosition() {
+        return {
+            x: Math.random() * (800 - 2 * radius) + radius,
+            y: Math.random() * (600 - 2 * radius) + radius
+        };
+    }
+
+    function isValidPosition(newCircle) {
+        return allCircles.every(
+            (existingCircle) =>
+                Math.sqrt(
+                    Math.pow(existingCircle.x - newCircle.x, 2) +
+                    Math.pow(existingCircle.y - newCircle.y, 2)
+                ) >= circleDiameter
+        );
+    }
+
+    for (let i = 0; i < numCircles; i++) {
+        let position;
+        do {
+            position = getRandomPosition();
+        } while (!isValidPosition(position));
+
+        const neutralCircle = {
+            id: `n${i}`,
+            x: position.x,
+            y: position.y,
+            units: Math.floor(Math.random() * config.neutralStartingUnits.max) + config.neutralStartingUnits.min,
+            isPlayer: false,
+            playerId: null
+        };
+
+        allCircles.push(neutralCircle); // Add to all circles to enforce distance
+        neutralCircles.push(neutralCircle);
+    }
+
+    return neutralCircles;
 }
 
 function handlePlayerAction(action, gameState, matchId) {
