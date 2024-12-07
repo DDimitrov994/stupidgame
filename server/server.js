@@ -235,18 +235,64 @@ function handlePlayerAction(action, gameState, matchId) {
 
 function startGameLoop(matchId, gameState) {
     const interval = setInterval(() => {
+        // Increment units for player-owned circles
         gameState.circles.forEach((circle) => {
             if (circle.isPlayer) {
                 circle.units += 1;
             }
         });
 
+        // Check win conditions
+        const players = {};
+
+        // Count the number of circles and moving dots for each player
+        gameState.circles.forEach((circle) => {
+            if (circle.playerId) {
+                if (!players[circle.playerId]) {
+                    players[circle.playerId] = { circles: 0, dots: 0 };
+                }
+                players[circle.playerId].circles++;
+            }
+        });
+
+        gameState.movingDots.forEach((dot) => {
+            if (!players[dot.playerId]) {
+                players[dot.playerId] = { circles: 0, dots: 0 };
+            }
+            players[dot.playerId].dots++;
+        });
+
+        // Determine remaining players
+        const remainingPlayers = Object.entries(players).filter(
+            ([, stats]) => stats.circles > 0 || stats.dots > 0
+        );
+
+        if (remainingPlayers.length === 1) {
+            const winnerId = remainingPlayers[0][0];
+            const match = matches.find((m) => m.id === matchId);
+
+            if (match) {
+                const winner = match.players.find((p) => p.playerData.id === winnerId);
+                if (winner) {
+                    winner.socket.emit('game_over', { winner: winner.playerData.name });
+                    console.log(`Player ${winner.playerData.name} wins!`);
+                }
+            }
+
+            // End game by clearing intervals and removing the match
+            clearInterval(interval);
+            matches = matches.filter((m) => m.id !== matchId);
+            return; // Exit early to stop broadcasting updates
+        }
+
+        // Broadcast the updated game state
         const match = matches.find((m) => m.id === matchId);
         if (match) {
             match.players.forEach((player) => player.socket.emit('update_game', gameState));
         }
     }, 1000);
 }
+
 function handleMovement(matchId, gameState) {
     const dotSpeed = 100; // Speed of dots in pixels per second
     const interval = setInterval(() => {
