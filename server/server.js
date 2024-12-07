@@ -11,7 +11,11 @@ const io = new Server(server, {
         methods: ["GET", "POST"],
     },
 });
-
+app.use(express.static('client'));
+// Default route to serve index.html for any unknown routes
+app.get('*', (req, res) => {
+    res.sendFile(__dirname + '/client/index.html');
+});
 let matchmakingQueue = [];
 let matches = [];
 
@@ -236,6 +240,6 @@ function findMatch(socketId) {
     return matches.find((m) => m.players.some((p) => p.socket.id === socketId));
 }
 
-server.listen(3000, () => {
-    console.log('Server running on http://localhost:3000');
+server.listen(80, () => {
+    console.log('Server running on port 80');
 });
