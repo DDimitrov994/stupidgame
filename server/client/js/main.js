@@ -1,7 +1,7 @@
 import { Circle } from './circle.js';
 import { gameLoop } from './gameLoop.js';
 
-const socket = io('http://localhost:80');
+const socket = io('https://stupidgame.onrender.com/:80');
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
