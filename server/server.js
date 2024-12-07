@@ -118,7 +118,7 @@ function handlePlayerAction(action, gameState, matchId) {
         let remainingUnits = action.units;
         let waveIndex = 0;
 
-        // Create moving dots with clustering and wave behavior
+        // Create moving dots with ownership and wave behavior
         while (remainingUnits > 0) {
             const dotsInWave = Math.min(remainingUnits, Math.floor(Math.random() * 8) + 3); // 3-10 dots per wave
             remainingUnits -= dotsInWave;
@@ -128,11 +128,11 @@ function handlePlayerAction(action, gameState, matchId) {
                     sourceId: source.id,
                     targetId: target.id,
                     progress: 0,
-                    waveProgress: waveIndex * 0.5, // Add delay between waves (e.g., 0.5 per wave)
+                    waveProgress: waveIndex * 0.5, // Add delay between waves
                     units: 1,
                     offsetX: (Math.random() - 0.5) * 20, // Randomized offset for clustering
                     offsetY: (Math.random() - 0.5) * 20,
-                    playerId: source.playerId // Track the original owner of the dot
+                    playerId: source.playerId // Explicitly track the original owner
                 });
             }
 
@@ -142,10 +142,9 @@ function handlePlayerAction(action, gameState, matchId) {
         // Add generated dots to the game state
         gameState.movingDots.push(...dots);
 
-        // Debugging log to confirm dots are properly initialized
-        console.log('Generated Moving Dots with Ownership:', dots);
+        console.log('Generated Moving Dots:', dots);
 
-        // Broadcast updated game state to all players in the match
+        // Broadcast updated game state
         const match = matches.find((m) => m.id === matchId);
         if (match) {
             match.players.forEach((player) => player.socket.emit('update_game', gameState));
@@ -154,8 +153,6 @@ function handlePlayerAction(action, gameState, matchId) {
         console.log('Invalid attack: insufficient units.');
     }
 }
-
-
 
 function startGameLoop(matchId, gameState) {
     const interval = setInterval(() => {
@@ -185,11 +182,10 @@ function handleMovement(matchId, gameState) {
 
                 // Increment progress only after wave delay
                 if (dot.progress < dot.waveProgress) {
-                    dot.progress += 0.1; // Increment only to simulate delay
-                    return; // Skip further movement until delay is over
+                    dot.progress += 0.1; // Increment only for delay simulation
+                    return; // Skip movement until delay is over
                 }
 
-                // Adjust progress to account for wave delay
                 const adjustedProgress = dot.progress - dot.waveProgress;
 
                 // Increment progress based on speed and distance
@@ -197,9 +193,9 @@ function handleMovement(matchId, gameState) {
                     dot.progress += (dotSpeed / distance) * 0.01;
                 }
 
-                // Check if the dot has reached its target
+                // Trigger battle resolution when the dot reaches its target
                 if (dot.progress >= 1 + dot.waveProgress) {
-                    resolveBattle(dot, gameState); // Trigger battle when truly complete
+                    resolveBattle(dot, gameState);
                 }
             }
         });
@@ -207,7 +203,7 @@ function handleMovement(matchId, gameState) {
         // Remove completed dots
         gameState.movingDots = gameState.movingDots.filter((dot) => dot.progress < 1 + dot.waveProgress);
 
-        // Broadcast the updated game state
+        // Broadcast updated game state
         const match = matches.find((m) => m.id === matchId);
         if (match) {
             match.players.forEach((player) => player.socket.emit('update_game', gameState));
@@ -215,27 +211,27 @@ function handleMovement(matchId, gameState) {
     }, 10); // Update every 10ms
 }
 
+
 function resolveBattle(dot, gameState) {
-    const source = gameState.circles.find((c) => c.id === dot.sourceId);
     const target = gameState.circles.find((c) => c.id === dot.targetId);
 
-    console.log(`Resolving battle for dot: Source ${dot.sourceId}, Target ${dot.targetId}, Units: ${dot.units}`);
+    console.log(`Resolving battle for dot: Target ${dot.targetId}, Units: ${dot.units}, Owner: ${dot.playerId}`);
 
     if (dot.playerId === target.playerId) {
-        console.log(`Transferring units: ${dot.units} from ${source.id} to ${target.id}`);
+        console.log(`Transferring units: ${dot.units} to ${target.id}`);
         target.units += dot.units; // Add units to the target circle
     } else {
         if (dot.units > target.units) {
+            console.log(`Dot owner ${dot.playerId} conquers ${target.id}`);
             target.isPlayer = true;
-            target.player = gameState.circles.find((c) => c.id === dot.sourceId).player;
-            target.color = gameState.circles.find((c) => c.id === dot.sourceId).color;
-            target.playerId = dot.playerId; // Use the dot's playerId to assign ownership
+            target.playerId = dot.playerId; // Use the dot's owner for new ownership
             target.units = dot.units - target.units;
         } else {
             target.units -= dot.units;
         }
     }
 }
+
 
 
 function findMatch(socketId) {
