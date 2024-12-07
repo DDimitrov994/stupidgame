@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://127.0.0.1:8080",
+        origin: "https://stupidgame.onrender.com",
         methods: ["GET", "POST"],
     },
 });
@@ -240,6 +240,7 @@ function findMatch(socketId) {
     return matches.find((m) => m.players.some((p) => p.socket.id === socketId));
 }
 
-server.listen(80, () => {
-    console.log('Server running on port 80');
+const PORT = process.env.PORT || 80; // Use PORT environment variable or default to 80
+server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });
