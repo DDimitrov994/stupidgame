@@ -254,30 +254,35 @@ function checkWinConditions(matchId, gameState, players) {
 
     // Collect stats
     gameState.circles.forEach((circle) => {
-        if (!playerStats[circle.playerId]) {
-            playerStats[circle.playerId] = { circles: 0, dots: 0 };
+        if(circle.playerId!=null){
+            if (!playerStats[circle.playerId]) {
+                playerStats[circle.playerId] = { circles: 0, dots: 0 };
+            }
+            playerStats[circle.playerId].circles++;
         }
-        playerStats[circle.playerId].circles++;
+        
     });
 
     gameState.movingDots.forEach((dot) => {
-        if (!playerStats[dot.playerId]) {
-            playerStats[dot.playerId] = { circles: 0, dots: 0 };
+        if(dot.playerId!=null){
+            if (!playerStats[dot.playerId]) {
+                playerStats[dot.playerId] = { circles: 0, dots: 0 };
+            }
+            playerStats[dot.playerId].dots++;
         }
-        playerStats[dot.playerId].dots++;
     });
 
     // Determine if a player has won
     const remainingPlayers = Object.entries(playerStats).filter(
         ([, stats]) => stats.circles > 0 || stats.dots > 0
     );
-    console.log('remainingPlayers')
-    console.log(remainingPlayers);
     if (remainingPlayers.length === 1) {
         console.log('remainingPlayers.length === 1')
         console.log(remainingPlayers);
         const winnerId = remainingPlayers[0][0];
         const winner = players.find((p) => p.playerData.id === winnerId);
+        console.log('Game over; Winner: ');
+        console.log(winner.playerData);
         if (winner) {
             winner.socket.emit('game_over', { winner: winner.playerData.name });
         }
