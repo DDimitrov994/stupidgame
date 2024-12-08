@@ -93,7 +93,6 @@ document.getElementById('find-game').addEventListener('click', () => {
     });
 });
 
-
 canvas.addEventListener('mousedown', (e) => {
     const { offsetX, offsetY } = e;
 
