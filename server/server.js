@@ -20,14 +20,46 @@ app.get('*', (req, res) => {
 
 // Game state management
 let matchmakingQueue = [];
-let matches = [];
+const matches = new Map(); // Use Map for faster match lookups
 
 // Helper Functions
 const GAME_SETTINGS = {
     circleRadius: 40,
     canvasWidth: 800,
     canvasHeight: 600,
+    unitIncrementInterval: 1000, // Increment units every second
+    dotUpdateInterval: 10,      // Update dot movement every 10ms
 };
+let lastUnitIncrementTime = Date.now();
+
+setInterval(() => {
+    const currentTime = Date.now();
+    const timeSinceLastIncrement = currentTime - lastUnitIncrementTime;
+
+    matches.forEach(({ gameState, players, id }) => {
+        // Increment units only if 1000ms have passed
+        if (timeSinceLastIncrement >= 1000) {
+            gameState.circles.forEach((circle) => {
+                if (circle.isPlayer) {
+                    circle.units += 1;
+                }
+            });
+
+            // Update the last increment time
+            lastUnitIncrementTime = currentTime;
+        }
+
+        // Update dots movement
+        updateDots(gameState);
+
+        // Broadcast game state
+        players.forEach((player) => player.socket.emit('update_game', gameState));
+
+        // Check for win conditions
+        checkWinConditions(id, gameState, players);
+    });
+}, GAME_SETTINGS.dotUpdateInterval);
+
 
 // Helper to generate random positions
 function getRandomPosition(radius) {
@@ -122,12 +154,12 @@ function handlePlayerAction(action, gameState) {
     const target = gameState.circles.find((c) => c.id === action.target);
 
     if (!source || !target) {
-        console.log('Invalid attack: source or target circle not found.');
+        console.error('Invalid attack: source or target circle not found.');
         return;
     }
 
     if (source.playerId !== action.playerId) {
-        console.log('Invalid attack: player does not own the source circle.');
+        console.error('Invalid attack: player does not own the source circle.');
         return;
     }
 
@@ -135,7 +167,7 @@ function handlePlayerAction(action, gameState) {
         source.units -= action.units;
         createMovingDots(source, target, action.units, gameState.movingDots);
     } else {
-        console.log('Invalid attack: insufficient units.');
+        console.error('Invalid attack: insufficient units.');
     }
 }
 
@@ -167,6 +199,38 @@ function createMovingDots(source, target, units, movingDots) {
     }
 }
 
+// Update dots movement
+function updateDots(gameState) {
+    gameState.movingDots.forEach((dot) => {
+        const source = gameState.circles.find((c) => c.id === dot.sourceId);
+        const target = gameState.circles.find((c) => c.id === dot.targetId);
+
+        if (source && target) {
+            const distance = Math.sqrt(
+                Math.pow(target.x - source.x, 2) + Math.pow(target.y - source.y, 2)
+            );
+
+            if (dot.progress < dot.waveProgress) {
+                dot.progress += 0.1;
+                return;
+            }
+
+            const adjustedProgress = dot.progress - dot.waveProgress;
+
+            if (adjustedProgress < 1) {
+                dot.progress += (100 / distance) * 0.01;
+            }
+
+            if (dot.progress >= 1 + dot.waveProgress) {
+                resolveBattle(dot, gameState);
+            }
+        }
+    });
+
+    // Remove completed dots
+    gameState.movingDots = gameState.movingDots.filter((dot) => dot.progress < 1 + dot.waveProgress);
+}
+
 // Handle resolving battles
 function resolveBattle(dot, gameState) {
     const target = gameState.circles.find((c) => c.id === dot.targetId);
@@ -184,58 +248,39 @@ function resolveBattle(dot, gameState) {
     }
 }
 
-// Start game loop
-function startGameLoop(matchId, gameState) {
-    const interval = setInterval(() => {
-        gameState.circles.forEach((circle) => {
-            if (circle.isPlayer) {
-                circle.units += 1;
-            }
-        });
+// Check win conditions
+function checkWinConditions(matchId, gameState, players) {
+    const playerStats = {};
 
-        const match = matches.find((m) => m.id === matchId);
-        if (match) {
-            match.players.forEach((player) => player.socket.emit('update_game', gameState));
+    // Collect stats
+    gameState.circles.forEach((circle) => {
+        if (!playerStats[circle.playerId]) {
+            playerStats[circle.playerId] = { circles: 0, dots: 0 };
         }
-    }, 1000);
-}
+        playerStats[circle.playerId].circles++;
+    });
 
-// Handle movement
-function handleMovement(matchId, gameState) {
-    const interval = setInterval(() => {
-        gameState.movingDots.forEach((dot) => {
-            const source = gameState.circles.find((c) => c.id === dot.sourceId);
-            const target = gameState.circles.find((c) => c.id === dot.targetId);
-
-            if (source && target) {
-                const distance = Math.sqrt(
-                    Math.pow(target.x - source.x, 2) + Math.pow(target.y - source.y, 2)
-                );
-
-                if (dot.progress < dot.waveProgress) {
-                    dot.progress += 0.1;
-                    return;
-                }
-
-                const adjustedProgress = dot.progress - dot.waveProgress;
-
-                if (adjustedProgress < 1) {
-                    dot.progress += (100 / distance) * 0.01;
-                }
-
-                if (dot.progress >= 1 + dot.waveProgress) {
-                    resolveBattle(dot, gameState);
-                }
-            }
-        });
-
-        gameState.movingDots = gameState.movingDots.filter((dot) => dot.progress < 1 + dot.waveProgress);
-
-        const match = matches.find((m) => m.id === matchId);
-        if (match) {
-            match.players.forEach((player) => player.socket.emit('update_game', gameState));
+    gameState.movingDots.forEach((dot) => {
+        if (!playerStats[dot.playerId]) {
+            playerStats[dot.playerId] = { circles: 0, dots: 0 };
         }
-    }, 10);
+        playerStats[dot.playerId].dots++;
+    });
+
+    // Determine if a player has won
+    const remainingPlayers = Object.entries(playerStats).filter(
+        ([, stats]) => stats.circles > 0 || stats.dots > 0
+    );
+
+    if (remainingPlayers.length === 1) {
+        const winnerId = remainingPlayers[0][0];
+        const winner = players.find((p) => p.playerData.id === winnerId);
+        if (winner) {
+            winner.socket.emit('game_over', { winner: winner.playerData.name });
+        }
+
+        matches.delete(matchId); // Remove the match
+    }
 }
 
 // Matchmaking
@@ -250,32 +295,33 @@ io.on('connection', (socket) => {
             const matchId = `match_${Date.now()}`;
             const gameState = initializeGameState(player1.playerData, player2.playerData);
 
-            matches.push({ id: matchId, players: [player1, player2], gameState });
+            matches.set(matchId, { id: matchId, players: [player1, player2], gameState });
 
             player1.socket.emit('match_found', { matchId, player: 1 });
             player2.socket.emit('match_found', { matchId, player: 2 });
-
-            startGameLoop(matchId, gameState);
-            handleMovement(matchId, gameState);
         }
     });
 
     socket.on('player_action', (action) => {
-        const match = matches.find((m) => m.players.some((p) => p.socket.id === socket.id));
+        const match = [...matches.values()].find((m) =>
+            m.players.some((p) => p.socket.id === socket.id)
+        );
         if (match) {
             handlePlayerAction(action, match.gameState);
         }
     });
 
     socket.on('disconnect', () => {
-        const match = matches.find((m) => m.players.some((p) => p.socket.id === socket.id));
+        const match = [...matches.values()].find((m) =>
+            m.players.some((p) => p.socket.id === socket.id)
+        );
 
         if (match) {
             const remainingPlayer = match.players.find((p) => p.socket.id !== socket.id);
             if (remainingPlayer) {
                 remainingPlayer.socket.emit('game_over', { winner: remainingPlayer.playerData.name });
             }
-            matches = matches.filter((m) => m.id !== match.id);
+            matches.delete(match.id);
         }
 
         matchmakingQueue = matchmakingQueue.filter((p) => p.socket.id !== socket.id);
