@@ -54,8 +54,6 @@ document.getElementById('find-game').addEventListener('click', () => {
     });
 
     socket.on('update_game', (gameState) => {
-        console.log('Updated game state received:', gameState);
-
         // Update circles from server
         circles = gameState.circles.map(
             (circle) =>
@@ -175,9 +173,6 @@ function renderMovingDots() {
             // Calculate the dot's position along the path
             const x = source.x + (target.x - source.x) * Math.min(1, adjustedProgress) + offsetX;
             const y = source.y + (target.y - source.y) * Math.min(1, adjustedProgress) + offsetY;
-
-            // Debugging log for dot positions
-            console.log(`Dot Position: x=${x}, y=${y}, progress=${progress}, adjustedProgress=${adjustedProgress}`);
 
             // Draw the dot
             ctx.beginPath();
