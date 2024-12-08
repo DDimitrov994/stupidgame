@@ -258,6 +258,8 @@ function checkWinConditions(matchId, gameState, players) {
             playerStats[circle.playerId] = { circles: 0, dots: 0 };
         }
         playerStats[circle.playerId].circles++;
+        console.log('playerStats')
+        console.log(playerStats);
     });
 
     gameState.movingDots.forEach((dot) => {
@@ -273,6 +275,8 @@ function checkWinConditions(matchId, gameState, players) {
     );
 
     if (remainingPlayers.length === 1) {
+        console.log('remainingPlayers.length === 1')
+        console.log(remainingPlayers);
         const winnerId = remainingPlayers[0][0];
         const winner = players.find((p) => p.playerData.id === winnerId);
         if (winner) {
