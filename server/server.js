@@ -321,6 +321,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        console.log(`Player disconnected: ${socket.id}`);
+        console.log('Total matches:' + matches.length);
+        console.log('Players in queue: ' + matchmakingQueue.length);
         const match = [...matches.values()].find((m) =>
             m.players.some((p) => p.socket.id === socket.id)
         );
