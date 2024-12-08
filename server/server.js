@@ -258,8 +258,6 @@ function checkWinConditions(matchId, gameState, players) {
             playerStats[circle.playerId] = { circles: 0, dots: 0 };
         }
         playerStats[circle.playerId].circles++;
-        console.log('playerStats')
-        console.log(playerStats);
     });
 
     gameState.movingDots.forEach((dot) => {
@@ -273,7 +271,8 @@ function checkWinConditions(matchId, gameState, players) {
     const remainingPlayers = Object.entries(playerStats).filter(
         ([, stats]) => stats.circles > 0 || stats.dots > 0
     );
-
+    console.log('remainingPlayers')
+    console.log(remainingPlayers);
     if (remainingPlayers.length === 1) {
         console.log('remainingPlayers.length === 1')
         console.log(remainingPlayers);
