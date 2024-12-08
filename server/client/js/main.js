@@ -10,7 +10,7 @@ let dragging = false;
 let sourceCircle = null;
 let movingDots = [];
 let backgroundImage = new Image();
-backgroundImage.src = '../assets/spaceBackground.png'; // Path to the background image
+backgroundImage.src = './assets/spaceBackground.png'; // Path to the background image
 
 // Function to generate a unique player ID
 function generatePlayerId() {

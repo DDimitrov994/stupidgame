@@ -18,7 +18,7 @@ app.use(express.static('client'));
 app.get('*', (req, res) => {
     res.sendFile(__dirname + '/client/index.html');
 });
-
+app.use('/assets', express.static('assets'));
 // Game state management
 let matchmakingQueue = [];
 const matches = new Map(); // Use Map for faster match lookups
