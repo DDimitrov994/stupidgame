@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { config } = require('./config');
+const { match } = require('assert');
 
 const app = express();
 const server = http.createServer(app);
@@ -284,7 +285,7 @@ function checkWinConditions(matchId, gameState, players) {
         console.log('Game over; Winner: ');
         console.log(winner.playerData);
         if (winner) {
-            winner.socket.emit('game_over', { winner: winner.playerData.name });
+            players.forEach((player) => player.socket.emit('game_over', { winner: winner.playerData.name }));
         }
 
         matches.delete(matchId); // Remove the match
