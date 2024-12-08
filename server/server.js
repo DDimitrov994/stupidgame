@@ -11,167 +11,113 @@ const io = new Server(server, {
         methods: ["GET", "POST"],
     },
 });
+
+// Serve static files
 app.use(express.static('client'));
-// Default route to serve index.html for any unknown routes
 app.get('*', (req, res) => {
     res.sendFile(__dirname + '/client/index.html');
 });
+
+// Game state management
 let matchmakingQueue = [];
 let matches = [];
 
-io.on('connection', (socket) => {
-    console.log(`Player connected: ${socket.id}`);
+// Helper Functions
+const GAME_SETTINGS = {
+    circleRadius: 40,
+    canvasWidth: 800,
+    canvasHeight: 600,
+};
 
-    socket.on('find_game', (playerData) => {
-        console.log(`Player ${playerData.name} searching for a game.`);
-        matchmakingQueue.push({ socket, playerData });
-
-        if (matchmakingQueue.length >= 2) {
-            const [player1, player2] = matchmakingQueue.splice(0, 2);
-
-            const matchId = `match_${Date.now()}`;
-            const gameState = initializeGameState(player1.playerData, player2.playerData);
-
-            matches.push({ id: matchId, players: [player1, player2], gameState });
-
-            player1.socket.emit('match_found', { matchId, player: 1 });
-            player2.socket.emit('match_found', { matchId, player: 2 });
-
-            console.log(`Match created: ${matchId}`);
-            startGameLoop(matchId, gameState);
-            handleMovement(matchId,gameState);
-        }
-    });
-
-    socket.on('player_action', (action) => {
-        const match = findMatch(socket.id);
-        if (match) {
-            handlePlayerAction(action, match.gameState, match.id);
-        }
-    });
-
-    socket.on('disconnect', () => {
-        console.log(`Player disconnected: ${socket.id}`);
-        const match = findMatch(socket.id);
-
-        if (match) {
-            const remainingPlayer = match.players.find((p) => p.socket.id !== socket.id);
-            if (remainingPlayer) {
-                remainingPlayer.socket.emit('game_over', { winner: remainingPlayer.playerData.name });
-                console.log(`Player ${remainingPlayer.playerData.name} is declared the winner.`);
-            }
-            matches = matches.filter((m) => m.id !== match.id);
-        }
-
-        matchmakingQueue = matchmakingQueue.filter((p) => p.socket.id !== socket.id);
-    });
-});
-
-function initializeGameState(player1, player2) {
-    const radius = 40; // Circle radius
-    const circleDiameter = radius * 2;
-
-    // Array to hold all placed circles to check for overlap
-    const allCircles = [];
-
-    // Helper function to generate random positions
-    function getRandomPosition() {
-        return {
-            x: Math.random() * (800 - 2 * radius) + radius, // Ensure circle stays within bounds
-            y: Math.random() * (600 - 2 * radius) + radius
-        };
-    }
-
-    // Helper function to check minimum distance
-    function isValidPosition(newCircle) {
-        return allCircles.every(
-            (existingCircle) =>
-                Math.sqrt(
-                    Math.pow(existingCircle.x - newCircle.x, 2) +
-                    Math.pow(existingCircle.y - newCircle.y, 2)
-                ) >= circleDiameter
-        );
-    }
-
-    // Generate random positions for player circles
-    function placePlayerCircle(player, color, id) {
-        let position;
-        do {
-            position = getRandomPosition();
-        } while (!isValidPosition(position));
-
-        const circle = {
-            id: id,
-            x: position.x,
-            y: position.y,
-            units: 10,
-            isPlayer: true,
-            player: player.name,
-            color: player.color,
-            playerId: player.id
-        };
-
-        allCircles.push(circle); // Add to all circles to enforce distance
-        return circle;
-    }
-
-    const player1Circle = placePlayerCircle(player1, player1.color, 'p1');
-    const player2Circle = placePlayerCircle(player2, player2.color, 'p2');
-
-    // Generate random positions for neutral circles
-    const neutralCircles = generateNeutralCircles(config.neutralCircleRange, allCircles, circleDiameter);
-
+// Helper to generate random positions
+function getRandomPosition(radius) {
     return {
-        circles: [player1Circle, player2Circle, ...neutralCircles],
-        movingDots: [],
+        x: Math.random() * (GAME_SETTINGS.canvasWidth - 2 * radius) + radius,
+        y: Math.random() * (GAME_SETTINGS.canvasHeight - 2 * radius) + radius,
     };
 }
 
+// Helper to validate circle placement
+function isValidPosition(newCircle, allCircles, circleDiameter) {
+    return allCircles.every(
+        (existingCircle) =>
+            Math.sqrt(
+                Math.pow(existingCircle.x - newCircle.x, 2) +
+                Math.pow(existingCircle.y - newCircle.y, 2)
+            ) >= circleDiameter
+    );
+}
+
+// Create a player circle
+function createPlayerCircle(player, id, allCircles, circleDiameter) {
+    let position;
+    do {
+        position = getRandomPosition(GAME_SETTINGS.circleRadius);
+    } while (!isValidPosition(position, allCircles, circleDiameter));
+
+    const circle = {
+        id,
+        x: position.x,
+        y: position.y,
+        units: 10,
+        isPlayer: true,
+        player: player.name,
+        color: player.color,
+        playerId: player.id,
+    };
+
+    allCircles.push(circle);
+    return circle;
+}
+
+// Generate neutral circles
 function generateNeutralCircles(range, allCircles, circleDiameter) {
     const numCircles = Math.floor(Math.random() * (range[1] - range[0] + 1)) + range[0];
-    const radius = 40; // Circle radius
     const neutralCircles = [];
-
-    function getRandomPosition() {
-        return {
-            x: Math.random() * (800 - 2 * radius) + radius,
-            y: Math.random() * (600 - 2 * radius) + radius
-        };
-    }
-
-    function isValidPosition(newCircle) {
-        return allCircles.every(
-            (existingCircle) =>
-                Math.sqrt(
-                    Math.pow(existingCircle.x - newCircle.x, 2) +
-                    Math.pow(existingCircle.y - newCircle.y, 2)
-                ) >= circleDiameter
-        );
-    }
 
     for (let i = 0; i < numCircles; i++) {
         let position;
         do {
-            position = getRandomPosition();
-        } while (!isValidPosition(position));
+            position = getRandomPosition(GAME_SETTINGS.circleRadius);
+        } while (!isValidPosition(position, allCircles, circleDiameter));
 
-        const neutralCircle = {
+        const circle = {
             id: `n${i}`,
             x: position.x,
             y: position.y,
             units: Math.floor(Math.random() * config.neutralStartingUnits.max) + config.neutralStartingUnits.min,
             isPlayer: false,
-            playerId: null
+            playerId: null,
         };
 
-        allCircles.push(neutralCircle); // Add to all circles to enforce distance
-        neutralCircles.push(neutralCircle);
+        allCircles.push(circle);
+        neutralCircles.push(circle);
     }
 
     return neutralCircles;
 }
 
-function handlePlayerAction(action, gameState, matchId) {
+// Initialize game state
+function initializeGameState(player1, player2) {
+    const radius = GAME_SETTINGS.circleRadius;
+    const circleDiameter = radius * 2;
+    const allCircles = [];
+
+    const playerCircles = [
+        createPlayerCircle(player1, 'p1', allCircles, circleDiameter),
+        createPlayerCircle(player2, 'p2', allCircles, circleDiameter),
+    ];
+
+    const neutralCircles = generateNeutralCircles(config.neutralCircleRange, allCircles, circleDiameter);
+
+    return {
+        circles: [...playerCircles, ...neutralCircles],
+        movingDots: [],
+    };
+}
+
+// Handle player actions
+function handlePlayerAction(action, gameState) {
     const source = gameState.circles.find((c) => c.id === action.source);
     const target = gameState.circles.find((c) => c.id === action.target);
 
@@ -186,106 +132,67 @@ function handlePlayerAction(action, gameState, matchId) {
     }
 
     if (source.units >= action.units) {
-        console.log(`Attack initiated from ${source.id} to ${target.id} with ${action.units} units`);
-
         source.units -= action.units;
-
-        const dots = [];
-        let remainingUnits = action.units;
-        let waveIndex = 0;
-
-        // Create moving dots with ownership, color, and player data
-        while (remainingUnits > 0) {
-            const dotsInWave = Math.min(remainingUnits, Math.floor(Math.random() * 8) + 3); // 3-10 dots per wave
-            remainingUnits -= dotsInWave;
-
-            for (let i = 0; i < dotsInWave; i++) {
-                dots.push({
-                    sourceId: source.id,
-                    targetId: target.id,
-                    progress: 0,
-                    waveProgress: waveIndex * 0.5, // Add delay between waves
-                    units: 1,
-                    offsetX: (Math.random() - 0.5) * 20, // Randomized offset for clustering
-                    offsetY: (Math.random() - 0.5) * 20,
-                    playerId: source.playerId, // Track the original owner
-                    color: source.color,       // Track the original color
-                    player: source.player      // Track the original player name
-                });
-            }
-
-            waveIndex++; // Increment wave index for the next set of dots
-        }
-
-        // Add generated dots to the game state
-        gameState.movingDots.push(...dots);
-
-        console.log('Generated Moving Dots:', dots);
-
-        // Broadcast updated game state
-        const match = matches.find((m) => m.id === matchId);
-        if (match) {
-            match.players.forEach((player) => player.socket.emit('update_game', gameState));
-        }
+        createMovingDots(source, target, action.units, gameState.movingDots);
     } else {
         console.log('Invalid attack: insufficient units.');
     }
 }
 
+// Create moving dots for an attack
+function createMovingDots(source, target, units, movingDots) {
+    let remainingUnits = units;
+    let waveIndex = 0;
 
+    while (remainingUnits > 0) {
+        const dotsInWave = Math.min(remainingUnits, Math.floor(Math.random() * 8) + 3); // 3-10 dots per wave
+        remainingUnits -= dotsInWave;
+
+        for (let i = 0; i < dotsInWave; i++) {
+            movingDots.push({
+                sourceId: source.id,
+                targetId: target.id,
+                progress: 0,
+                waveProgress: waveIndex * 0.5,
+                units: 1,
+                offsetX: (Math.random() - 0.5) * 20,
+                offsetY: (Math.random() - 0.5) * 20,
+                playerId: source.playerId,
+                color: source.color,
+                player: source.player,
+            });
+        }
+
+        waveIndex++;
+    }
+}
+
+// Handle resolving battles
+function resolveBattle(dot, gameState) {
+    const target = gameState.circles.find((c) => c.id === dot.targetId);
+
+    if (dot.playerId === target.playerId) {
+        target.units += dot.units;
+    } else if (dot.units > target.units) {
+        target.isPlayer = true;
+        target.playerId = dot.playerId;
+        target.units = dot.units - target.units;
+        target.color = dot.color;
+        target.player = dot.player;
+    } else {
+        target.units -= dot.units;
+    }
+}
+
+// Start game loop
 function startGameLoop(matchId, gameState) {
     const interval = setInterval(() => {
-        // Increment units for player-owned circles
         gameState.circles.forEach((circle) => {
             if (circle.isPlayer) {
                 circle.units += 1;
             }
         });
 
-        // Check win conditions
-        const players = {};
-
-        // Count the number of circles and moving dots for each player
-        gameState.circles.forEach((circle) => {
-            if (circle.playerId) {
-                if (!players[circle.playerId]) {
-                    players[circle.playerId] = { circles: 0, dots: 0 };
-                }
-                players[circle.playerId].circles++;
-            }
-        });
-
-        gameState.movingDots.forEach((dot) => {
-            if (!players[dot.playerId]) {
-                players[dot.playerId] = { circles: 0, dots: 0 };
-            }
-            players[dot.playerId].dots++;
-        });
-
-        // Determine remaining players
-        const remainingPlayers = Object.entries(players).filter(
-            ([, stats]) => stats.circles > 0 || stats.dots > 0
-        );
-
-        if (remainingPlayers.length === 1) {
-            const winnerId = remainingPlayers[0][0];
-            const match = matches.find((m) => m.id === matchId);
-
-            if (match) {
-                const winner = match.players.find((p) => p.playerData.id === winnerId);
-                if (winner) {
-                    winner.socket.emit('game_over', { winner: winner.playerData.name });
-                    console.log(`Player ${winner.playerData.name} wins!`);
-                }
-            }
-
-            // End game by clearing intervals and removing the match
-            clearInterval(interval);
-            matches = matches.filter((m) => m.id !== matchId);
-            return; // Exit early to stop broadcasting updates
-        }
-
-        // Broadcast the updated game state
         const match = matches.find((m) => m.id === matchId);
         if (match) {
             match.players.forEach((player) => player.socket.emit('update_game', gameState));
@@ -293,8 +200,8 @@ function startGameLoop(matchId, gameState) {
     }, 1000);
 }
 
+// Handle movement
 function handleMovement(matchId, gameState) {
-    const dotSpeed = 100; // Speed of dots in pixels per second
     const interval = setInterval(() => {
         gameState.movingDots.forEach((dot) => {
             const source = gameState.circles.find((c) => c.id === dot.sourceId);
@@ -305,69 +212,78 @@ function handleMovement(matchId, gameState) {
                     Math.pow(target.x - source.x, 2) + Math.pow(target.y - source.y, 2)
                 );
 
-                // Increment progress only after wave delay
                 if (dot.progress < dot.waveProgress) {
-                    dot.progress += 0.1; // Increment only for delay simulation
-                    return; // Skip movement until delay is over
+                    dot.progress += 0.1;
+                    return;
                 }
 
                 const adjustedProgress = dot.progress - dot.waveProgress;
 
-                // Increment progress based on speed and distance
                 if (adjustedProgress < 1) {
-                    dot.progress += (dotSpeed / distance) * 0.01;
+                    dot.progress += (100 / distance) * 0.01;
                 }
 
-                // Trigger battle resolution when the dot reaches its target
                 if (dot.progress >= 1 + dot.waveProgress) {
                     resolveBattle(dot, gameState);
                 }
             }
         });
 
-        // Remove completed dots
         gameState.movingDots = gameState.movingDots.filter((dot) => dot.progress < 1 + dot.waveProgress);
 
-        // Broadcast updated game state
         const match = matches.find((m) => m.id === matchId);
         if (match) {
             match.players.forEach((player) => player.socket.emit('update_game', gameState));
         }
-    }, 10); // Update every 10ms
+    }, 10);
 }
 
-function resolveBattle(dot, gameState) {
-    const target = gameState.circles.find((c) => c.id === dot.targetId);
+// Matchmaking
+io.on('connection', (socket) => {
+    console.log(`Player connected: ${socket.id}`);
 
-    console.log(`Resolving battle for dot: Target ${dot.targetId}, Units: ${dot.units}, Owner: ${dot.playerId}`);
+    socket.on('find_game', (playerData) => {
+        matchmakingQueue.push({ socket, playerData });
 
-    if (dot.playerId === target.playerId) {
-        console.log(`Transferring units: ${dot.units} to ${target.id}`);
-        target.units += dot.units;
-    } else {
-        if (dot.units > target.units) {
-            console.log(`Dot owner ${dot.playerId} conquers ${target.id}`);
-            target.isPlayer = true;
-            target.playerId = dot.playerId; // Use the dot's owner for new ownership
-            target.units = dot.units - target.units;
+        if (matchmakingQueue.length >= 2) {
+            const [player1, player2] = matchmakingQueue.splice(0, 2);
+            const matchId = `match_${Date.now()}`;
+            const gameState = initializeGameState(player1.playerData, player2.playerData);
 
-            // Update color and player directly from the dot
-            target.color = dot.color;
-            target.player = dot.player;
-        } else {
-            target.units -= dot.units;
+            matches.push({ id: matchId, players: [player1, player2], gameState });
+
+            player1.socket.emit('match_found', { matchId, player: 1 });
+            player2.socket.emit('match_found', { matchId, player: 2 });
+
+            startGameLoop(matchId, gameState);
+            handleMovement(matchId, gameState);
         }
-    }
+    });
 
-    console.log('Updated Target Circle:', target);
-}
+    socket.on('player_action', (action) => {
+        const match = matches.find((m) => m.players.some((p) => p.socket.id === socket.id));
+        if (match) {
+            handlePlayerAction(action, match.gameState);
+        }
+    });
 
+    socket.on('disconnect', () => {
+        const match = matches.find((m) => m.players.some((p) => p.socket.id === socket.id));
 
-function findMatch(socketId) {
-    return matches.find((m) => m.players.some((p) => p.socket.id === socketId));
-}
+        if (match) {
+            const remainingPlayer = match.players.find((p) => p.socket.id !== socket.id);
+            if (remainingPlayer) {
+                remainingPlayer.socket.emit('game_over', { winner: remainingPlayer.playerData.name });
+            }
+            matches = matches.filter((m) => m.id !== match.id);
+        }
 
-const PORT = process.env.PORT || 80; // Use PORT environment variable or default to 80
+        matchmakingQueue = matchmakingQueue.filter((p) => p.socket.id !== socket.id);
+    });
+});
+
+// Start server
+const PORT = process.env.PORT || 80;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
