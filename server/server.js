@@ -216,7 +216,7 @@ function updateDots(gameState) {
             const distance = Math.sqrt(
                 Math.pow(target.x - source.x, 2) + Math.pow(target.y - source.y, 2)
             );
-
+            const targetRadius = GAME_SETTINGS.circleRadius;
             if (dot.progress < dot.waveProgress) {
                 dot.progress += 0.1;
                 return;
@@ -224,11 +224,11 @@ function updateDots(gameState) {
 
             const adjustedProgress = dot.progress - dot.waveProgress;
 
-            if (adjustedProgress < 1) {
+            if (adjustedProgress < (distance - targetRadius) / distance) {
                 dot.progress += (100 / distance) * 0.01;
             }
 
-            if (dot.progress >= 1 + dot.waveProgress) {
+            if (adjustedProgress >= (distance - targetRadius) / distance) {
                 resolveBattle(dot, gameState);
             }
         }
