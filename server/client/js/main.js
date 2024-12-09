@@ -11,22 +11,49 @@ let sourceCircle = null;
 let movingDots = [];
 // Prefetch and cache images
 const preloadedImages = {};
+let totalImages = 0;
+let loadedImages = 0;
 
-function preloadImages() {
-    const imageSources = {
-        player1: '/assets/player1Circle.png',
-        player2: '/assets/player2Circle.png',
-        neutral: '/assets/neutralCircle.png',
-    };
+// Function to preload images
+function preloadImages(imageSources, callback) {
+    totalImages = Object.keys(imageSources).length;
 
     for (const [key, src] of Object.entries(imageSources)) {
         const img = new Image();
         img.src = src;
-        preloadedImages[key] = img;
+
+        img.onload = () => {
+            preloadedImages[key] = img;
+            loadedImages++;
+            console.log(`${key} image loaded (${loadedImages}/${totalImages})`);
+            if (loadedImages === totalImages) {
+                callback(); // All images loaded, start the main loop
+            }
+        };
+
+        img.onerror = () => {
+            console.error(`Failed to load image: ${src}`);
+            loadedImages++;
+            if (loadedImages === totalImages) {
+                callback(); // Start the main loop even if some images fail to load
+            }
+        };
     }
 }
 
-preloadImages(); // Call this at the beginning of the game
+// Define image sources
+const imageSources = {
+    background: '/assets/spaceBackground.png',
+    player1: '/assets/player1Circle.png',
+    player2: '/assets/player2Circle.png',
+    neutral: '/assets/neutralCircle.png',
+};
+
+// Preload all images and start the game loop once done
+preloadImages(imageSources, () => {
+    console.log('All images loaded! Starting game...');
+    requestAnimationFrame(loop);
+});
 
 // Function to generate a unique player ID
 function generatePlayerId() {
@@ -189,32 +216,27 @@ function renderMovingDots() {
         }
     });
 }
+// Modify gameLoop to pass preloaded images
 function gameLoop(ctx, circles, deltaTime) {
+    // Render background
+    if (preloadedImages.background) {
+        ctx.drawImage(preloadedImages.background, 0, 0, canvas.width, canvas.height);
+    }
+
     // Update and draw all circles
     circles.forEach((circle) => {
         circle.update(deltaTime);
         circle.draw(ctx, preloadedImages); // Pass preloaded images
     });
 }
-
-function renderBackground() {
-    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
-}
-
 let lastTime = 0;
 function loop(timestamp) {
     const deltaTime = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
+
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    // Render background
-    renderBackground();
-    // Render circles and dots
     gameLoop(ctx, circles, deltaTime);
     renderMovingDots();
     requestAnimationFrame(loop);
 }
 
-backgroundImage.onload = () => {
-    console.log('Background image loaded!');
-    requestAnimationFrame(loop);
-};
