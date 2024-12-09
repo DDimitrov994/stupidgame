@@ -172,12 +172,12 @@ let lastTime = 0;
 function loop(timestamp) {
     const deltaTime = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
-    // Render circles and dots
-    gameLoop(ctx, circles, deltaTime);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     // Render background
     renderBackground();
+    // Render circles and dots
+    gameLoop(ctx, circles, deltaTime);
     renderMovingDots();
-
     requestAnimationFrame(loop);
 }
 
