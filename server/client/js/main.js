@@ -1,3 +1,4 @@
+// Updated main.js
 import { Circle } from './circle.js';
 import { gameLoop } from './gameLoop.js';
 
@@ -67,7 +68,12 @@ document.getElementById('find-game').addEventListener('click', () => {
                     circle.isPlayer,
                     circle.player || '',
                     circle.color || 'gray',
-                    circle.playerId
+                    circle.playerId,
+                    circle.isPlayer
+                        ? circle.playerId === playerData.id
+                            ? 'https://stupidgame.onrender.com/assets/player1Circle.png' // Player 1 image
+                            : 'https://stupidgame.onrender.com/assets/player1Circle.png' // Player 2 image
+                        : 'https://stupidgame.onrender.com/assets/player1Circle.png' // Neutral circle image
                 )
         );
 
