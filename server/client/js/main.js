@@ -103,13 +103,12 @@ document.getElementById('find-game').addEventListener('click', () => {
    // Modify socket.on('update_game') to assign image keys
 socket.on('update_game', (gameState) => {
     circles = gameState.circles.map((circle) => {
-        const isCurrentPlayer = circle.playerId === playerData.id;
-        const imageKey =
-            circle.playerId === playerData.id
-                ? 'player1'
-                : circle.playerId
-                ? 'player2'
-                : 'neutral';
+        let imageKey='neutral';
+        for (const [key, src] of Object.entries(imageSources)) {
+            if(src==gameState.playerImages[playerData.id]){
+                imageKey=key;
+            }
+        }
         return new Circle(
             circle.id,
             circle.x,
