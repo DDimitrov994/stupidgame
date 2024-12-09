@@ -1,6 +1,5 @@
 // Updated main.js
 import { Circle } from './circle.js';
-import { gameLoop } from './gameLoop.js';
 
 const socket = io(window.location.origin);
 const canvas = document.getElementById('gameCanvas');
@@ -10,8 +9,24 @@ let circles = [];
 let dragging = false;
 let sourceCircle = null;
 let movingDots = [];
-let backgroundImage = new Image();
-backgroundImage.src = '/assets/spaceBackground.png'; // Adjust path as needed
+// Prefetch and cache images
+const preloadedImages = {};
+
+function preloadImages() {
+    const imageSources = {
+        player1: '/assets/player1Circle.png',
+        player2: '/assets/player2Circle.png',
+        neutral: '/assets/neutralCircle.png',
+    };
+
+    for (const [key, src] of Object.entries(imageSources)) {
+        const img = new Image();
+        img.src = src;
+        preloadedImages[key] = img;
+    }
+}
+
+preloadImages(); // Call this at the beginning of the game
 
 // Function to generate a unique player ID
 function generatePlayerId() {
@@ -58,40 +73,47 @@ document.getElementById('find-game').addEventListener('click', () => {
         document.getElementById('gameCanvas').style.display = 'block';
     });
 
-    socket.on('update_game', (gameState) => {
-        circles = gameState.circles.map((circle) => {
-            const isCurrentPlayer = circle.playerId === playerData.id;
-            const playerImage = gameState.playerImages[circle.playerId] || '/assets/neutralCircle.png';
-            return new Circle(
-                circle.id,
-                circle.x,
-                circle.y,
-                circle.units,
-                circle.isPlayer,
-                circle.player || '',
-                circle.color || 'gray',
-                circle.playerId,
-                circle.isPlayer ? playerImage : '/assets/neutralCircle.png' // Use image associated with playerId
-            );
-        });
-
-        movingDots = gameState.movingDots.map((dot) => {
-            const source = circles.find((c) => c.id === dot.sourceId);
-            const target = circles.find((c) => c.id === dot.targetId);
-
-            if (!source || !target) {
-                console.error(`Source or target not found for dot:`, dot);
-            }
-
-            return {
-                ...dot,
-                source,
-                target,
-                offsetX: dot.offsetX || 0,
-                offsetY: dot.offsetY || 0,
-            };
-        });
+   // Modify socket.on('update_game') to assign image keys
+socket.on('update_game', (gameState) => {
+    circles = gameState.circles.map((circle) => {
+        const isCurrentPlayer = circle.playerId === playerData.id;
+        const imageKey =
+            circle.playerId === playerData.id
+                ? 'player1'
+                : circle.playerId
+                ? 'player2'
+                : 'neutral';
+        return new Circle(
+            circle.id,
+            circle.x,
+            circle.y,
+            circle.units,
+            circle.isPlayer,
+            circle.player || '',
+            circle.color || 'gray',
+            circle.playerId,
+            imageKey // Use imageKey for preloaded images
+        );
     });
+
+    movingDots = gameState.movingDots.map((dot) => {
+        const source = circles.find((c) => c.id === dot.sourceId);
+        const target = circles.find((c) => c.id === dot.targetId);
+
+        if (!source || !target) {
+            console.error(`Source or target not found for dot:`, dot);
+        }
+
+        return {
+            ...dot,
+            source,
+            target,
+            offsetX: dot.offsetX || 0,
+            offsetY: dot.offsetY || 0,
+        };
+    });
+});
+
 
     socket.on('game_over', (data) => {
         alert(`Game Over! Winner: ${data.winner}`);
@@ -165,6 +187,13 @@ function renderMovingDots() {
             ctx.fillStyle = dot.color || 'white';
             ctx.fill();
         }
+    });
+}
+function gameLoop(ctx, circles, deltaTime) {
+    // Update and draw all circles
+    circles.forEach((circle) => {
+        circle.update(deltaTime);
+        circle.draw(ctx, preloadedImages); // Pass preloaded images
     });
 }
 

@@ -1,6 +1,5 @@
-// Updated circle.js
 export class Circle {
-    constructor(id, x, y, units, isPlayer = false, playerName = '', color = 'gray', playerId = null, imageSrc = '') {
+    constructor(id, x, y, units, isPlayer = false, playerName = '', color = 'gray', playerId = null, imageKey = '') {
         this.id = id;
         this.x = x;
         this.y = y;
@@ -10,14 +9,15 @@ export class Circle {
         this.color = color;
         this.playerId = playerId;
         this.unitTimer = 0;
-        this.image = new Image();
-        this.image.src = imageSrc; // Set the source of the image
+        this.imageKey = imageKey; // Reference to the preloaded image key
     }
 
-    draw(ctx) {
-        // Draw the circle image
-        if (this.image.complete) {
-            ctx.drawImage(this.image, this.x - 40, this.y - 40, 80, 80); // Adjust for circle radius (40)
+    draw(ctx, preloadedImages) {
+        // Use the preloaded image if available
+        const img = preloadedImages[this.imageKey];
+
+        if (img && img.complete) {
+            ctx.drawImage(img, this.x - 40, this.y - 40, 80, 80); // Adjust for circle radius (40)
         } else {
             // Fallback: draw a circle if the image is not loaded
             ctx.beginPath();
