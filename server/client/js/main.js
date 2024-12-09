@@ -11,7 +11,7 @@ let dragging = false;
 let sourceCircle = null;
 let movingDots = [];
 let backgroundImage = new Image();
-backgroundImage.src = 'https://stupidgame.onrender.com/assets/spaceBackground.png'; // Path to the background image
+backgroundImage.src = '/assets/spaceBackground.png'; // Adjust path as needed
 
 // Function to generate a unique player ID
 function generatePlayerId() {
@@ -22,26 +22,27 @@ function generatePlayerId() {
 let playerData = {
     id: localStorage.getItem('playerId') || generatePlayerId(),
     name: localStorage.getItem('playerName') || 'Player',
-    color: localStorage.getItem('playerColor') || '#0000ff',
+    selectedImage: localStorage.getItem('playerImage') || '/assets/player1Circle.png',
 };
 
 // Save player data to local storage
 localStorage.setItem('playerId', playerData.id);
 localStorage.setItem('playerName', playerData.name);
-localStorage.setItem('playerColor', playerData.color);
+localStorage.setItem('playerImage', playerData.selectedImage);
 
 // Prefill the form fields with stored values
 document.getElementById('player-name').value = playerData.name;
-document.getElementById('player-color').value = playerData.color;
+document.getElementById('player-image').value = playerData.selectedImage;
 
 // Update player data when fields change
 document.getElementById('player-name').addEventListener('input', (e) => {
     playerData.name = e.target.value || 'Player';
     localStorage.setItem('playerName', playerData.name);
 });
-document.getElementById('player-color').addEventListener('input', (e) => {
-    playerData.color = e.target.value;
-    localStorage.setItem('playerColor', playerData.color);
+
+document.getElementById('player-image').addEventListener('change', (e) => {
+    playerData.selectedImage = e.target.value;
+    localStorage.setItem('playerImage', playerData.selectedImage);
 });
 
 // Matchmaking and game initialization
@@ -58,24 +59,21 @@ document.getElementById('find-game').addEventListener('click', () => {
     });
 
     socket.on('update_game', (gameState) => {
-        circles = gameState.circles.map(
-            (circle) =>
-                new Circle(
-                    circle.id,
-                    circle.x,
-                    circle.y,
-                    circle.units,
-                    circle.isPlayer,
-                    circle.player || '',
-                    circle.color || 'gray',
-                    circle.playerId,
-                    circle.isPlayer
-                        ? circle.playerId === playerData.id
-                            ? 'https://stupidgame.onrender.com/assets/player1Circle.png' // Player 1 image
-                            : 'https://stupidgame.onrender.com/assets/player1Circle.png' // Player 2 image
-                        : 'https://stupidgame.onrender.com/assets/player1Circle.png' // Neutral circle image
-                )
-        );
+        circles = gameState.circles.map((circle) => {
+            const isCurrentPlayer = circle.playerId === playerData.id;
+            const playerImage = gameState.playerImages[circle.playerId] || '/assets/neutralCircle.png';
+            return new Circle(
+                circle.id,
+                circle.x,
+                circle.y,
+                circle.units,
+                circle.isPlayer,
+                circle.player || '',
+                circle.color || 'gray',
+                circle.playerId,
+                circle.isPlayer ? playerImage : '/assets/neutralCircle.png' // Use image associated with playerId
+            );
+        });
 
         movingDots = gameState.movingDots.map((dot) => {
             const source = circles.find((c) => c.id === dot.sourceId);

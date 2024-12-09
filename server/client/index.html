@@ -10,7 +10,13 @@
     <div id="game-menu">
         <h1>Circle Conquest</h1>
         <label>Player Name: <input type="text" id="player-name"></label>
-        <label>Preferred Color: <input type="color" id="player-color"></label>
+        <label>Select Your Circle Image:
+            <select id="player-image">
+                <option value="/assets/player1Circle.png">Circle Image 1</option>
+                <option value="/assets/player2Circle.png">Circle Image 2</option>
+                <option value="/assets/player3Circle.png">Circle Image 3</option>
+            </select>
+        </label>
         <button id="find-game">Find Game</button>
     </div>
     <div id="loading-screen" style="display: none;">Searching for a game...</div>

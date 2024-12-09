@@ -1,3 +1,4 @@
+// Updated server.js with player image handling
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -19,9 +20,11 @@ app.get('*', (req, res) => {
     res.sendFile(__dirname + '/client/index.html');
 });
 app.use('/assets', express.static('assets'));
+
 // Game state management
 let matchmakingQueue = [];
 const matches = new Map(); // Use Map for faster match lookups
+const playerImages = {}; // Map to store player images by playerId
 
 // Helper Functions
 const GAME_SETTINGS = {
@@ -60,7 +63,6 @@ setInterval(() => {
         checkWinConditions(id, gameState, players);
     });
 }, GAME_SETTINGS.dotUpdateInterval);
-
 
 // Helper to generate random positions
 function getRandomPosition(radius) {
@@ -146,6 +148,10 @@ function initializeGameState(player1, player2) {
     return {
         circles: [...playerCircles, ...neutralCircles],
         movingDots: [],
+        playerImages: {
+            [player1.id]: player1.selectedImage,
+            [player2.id]: player2.selectedImage,
+        },
     };
 }
 
@@ -255,17 +261,16 @@ function checkWinConditions(matchId, gameState, players) {
 
     // Collect stats
     gameState.circles.forEach((circle) => {
-        if(circle.playerId!=null){
+        if (circle.playerId != null) {
             if (!playerStats[circle.playerId]) {
                 playerStats[circle.playerId] = { circles: 0, dots: 0 };
             }
             playerStats[circle.playerId].circles++;
         }
-        
     });
 
     gameState.movingDots.forEach((dot) => {
-        if(dot.playerId!=null){
+        if (dot.playerId != null) {
             if (!playerStats[dot.playerId]) {
                 playerStats[dot.playerId] = { circles: 0, dots: 0 };
             }
@@ -278,7 +283,7 @@ function checkWinConditions(matchId, gameState, players) {
         ([, stats]) => stats.circles > 0 || stats.dots > 0
     );
     if (remainingPlayers.length === 1) {
-        console.log('remainingPlayers.length === 1')
+        console.log('remainingPlayers.length === 1');
         console.log(remainingPlayers);
         const winnerId = remainingPlayers[0][0];
         const winner = players.find((p) => p.playerData.id === winnerId);
@@ -297,6 +302,9 @@ io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
 
     socket.on('find_game', (playerData) => {
+        // Save player image
+        playerImages[playerData.id] = playerData.selectedImage;
+
         matchmakingQueue.push({ socket, playerData });
 
         if (matchmakingQueue.length >= 2) {
