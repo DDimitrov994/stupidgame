@@ -222,25 +222,31 @@ function updateDots(gameState) {
             );
 
             if (dot.progress < dot.waveProgress) {
-                dot.progress += 0.1; // Pause for wave delay
+                // Delay for wave progress
+                dot.progress += 0.1;
                 return;
             }
 
-            const speed = 100 / distanceToTargetEdge * 0.01;
+            const movementSpeed = 1; // Adjust speed if necessary
+            const moveStepX = (targetEdgeX - dot.x) / distanceToTargetEdge * movementSpeed;
+            const moveStepY = (targetEdgeY - dot.y) / distanceToTargetEdge * movementSpeed;
 
-            if (distanceToTargetEdge > 0) {
-                dot.x += (targetEdgeX - dot.x) * speed;
-                dot.y += (targetEdgeY - dot.y) * speed;
-            }
+            // Move the dot incrementally toward the target edge
+            dot.x += moveStepX;
+            dot.y += moveStepY;
 
-            if (distanceToTargetEdge <= GAME_SETTINGS.circleRadius * 0.1) {
+            if (distanceToTargetEdge <= 1) {
+                // Dot has reached the target edge
                 resolveBattle(dot, gameState);
             }
         }
     });
 
     // Remove completed dots
-    gameState.movingDots = gameState.movingDots.filter((dot) => dot.progress < 1);
+    gameState.movingDots = gameState.movingDots.filter((dot) => {
+        const target = gameState.circles.find((c) => c.id === dot.targetId);
+        return target && Math.sqrt(Math.pow(dot.x - target.x, 2) + Math.pow(dot.y - target.y, 2)) > GAME_SETTINGS.circleRadius;
+    });
 }
 
 // Handle resolving battles
