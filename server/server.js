@@ -213,40 +213,29 @@ function updateDots(gameState) {
         const target = gameState.circles.find((c) => c.id === dot.targetId);
 
         if (source && target) {
-            const angle = Math.atan2(target.y - source.y, target.x - source.x);
-            const targetEdgeX = target.x - GAME_SETTINGS.circleRadius * Math.cos(angle);
-            const targetEdgeY = target.y - GAME_SETTINGS.circleRadius * Math.sin(angle);
-
-            const distanceToTargetEdge = Math.sqrt(
-                Math.pow(targetEdgeX - dot.x, 2) + Math.pow(targetEdgeY - dot.y, 2)
+            const distance = Math.sqrt(
+                Math.pow(target.x - source.x, 2) + Math.pow(target.y - source.y, 2)
             );
 
             if (dot.progress < dot.waveProgress) {
-                // Delay for wave progress
                 dot.progress += 0.1;
                 return;
             }
 
-            const movementSpeed = 1; // Adjust speed if necessary
-            const moveStepX = (targetEdgeX - dot.x) / distanceToTargetEdge * movementSpeed;
-            const moveStepY = (targetEdgeY - dot.y) / distanceToTargetEdge * movementSpeed;
+            const adjustedProgress = dot.progress - dot.waveProgress;
 
-            // Move the dot incrementally toward the target edge
-            dot.x += moveStepX;
-            dot.y += moveStepY;
+            if (adjustedProgress < 1) {
+                dot.progress += (100 / distance) * 0.01;
+            }
 
-            if (distanceToTargetEdge <= 1) {
-                // Dot has reached the target edge
+            if (dot.progress >= 1 + dot.waveProgress) {
                 resolveBattle(dot, gameState);
             }
         }
     });
 
     // Remove completed dots
-    gameState.movingDots = gameState.movingDots.filter((dot) => {
-        const target = gameState.circles.find((c) => c.id === dot.targetId);
-        return target && Math.sqrt(Math.pow(dot.x - target.x, 2) + Math.pow(dot.y - target.y, 2)) > GAME_SETTINGS.circleRadius;
-    });
+    gameState.movingDots = gameState.movingDots.filter((dot) => dot.progress < 1 + dot.waveProgress);
 }
 
 // Handle resolving battles
