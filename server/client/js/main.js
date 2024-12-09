@@ -105,7 +105,7 @@ socket.on('update_game', (gameState) => {
     circles = gameState.circles.map((circle) => {
         let imageKey='neutral';
         for (const [key, src] of Object.entries(imageSources)) {
-            if(src==gameState.playerImages[playerData.id]){
+            if(src==gameState.playerImages[circle.playerId]){
                 imageKey=key;
             }
         }
