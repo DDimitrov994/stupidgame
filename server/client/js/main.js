@@ -164,14 +164,18 @@ function renderMovingDots() {
     });
 }
 
+function renderBackground() {
+    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+}
 
 let lastTime = 0;
 function loop(timestamp) {
     const deltaTime = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
-
     // Render circles and dots
     gameLoop(ctx, circles, deltaTime);
+    // Render background
+    renderBackground();
     renderMovingDots();
 
     requestAnimationFrame(loop);
